@@ -9,7 +9,7 @@ function dynamicClothingSection(ob) {
 
   let boxLink = document.createElement("a");
   // boxLink.href = '#'
-  boxLink.href = "/contentDetails.html?" + ob.id;
+  boxLink.href = "C:\Users\ELCOT\Desktop\flash market\E-CommerceWebsite-master\E-CommerceWebsite-master\contentDetails.html" + ob.id;
   // console.log('link=>' + boxLink);
 
   let imgTag = document.createElement("img");
@@ -85,7 +85,9 @@ httpRequest.onreadystatechange = function() {
 };
 httpRequest.open(
   "GET",
-  "https://5d76bf96515d1a0014085cf9.mockapi.io/product",
-  true
+  "https://690ef3f8bd0fefc30a062f20.mockapi.io/blackzz/product/products"
+  
+
+   
 );
 httpRequest.send();
