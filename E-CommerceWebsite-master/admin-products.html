@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard - Black Flash⚡</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg,#0f172a,#1e293b); color: white; margin:0; padding:20px;}
+    h1{ text-align:center; color:#38bdf8; margin-bottom:20px;}
+    .container{ display:flex; flex-wrap:wrap; gap:20px; justify-content:space-between;}
+    .form-box, .table-box{ background:#1e293b; padding:25px; border-radius:15px; flex:1 1 45%; box-shadow:0 10px 20px rgba(0,0,0,0.3); transition:transform 0.3s;}
+    .form-box:hover, .table-box:hover{ transform:translateY(-5px);}
+    input, select, textarea, button{ width:100%; padding:12px; margin:10px 0; border-radius:10px; border:none; font-size:15px;}
+    textarea{ resize:vertical;}
+    button{ background:linear-gradient(90deg,#38bdf8,#0ea5e9); color:#0f172a; font-weight:bold; cursor:pointer; transition:0.3s;}
+    button:hover{ background:linear-gradient(90deg,#0ea5e9,#38bdf8); transform:scale(1.05);}
+    table{ width:100%; border-collapse:collapse; margin-top:15px; border-radius:10px; overflow:hidden;}
+    th,td{ padding:12px; text-align:center;}
+    th{ background:#38bdf8; color:#0f172a;}
+    tr{ transition:background 0.3s;}
+    tr:hover{ background: rgba(56,189,248,0.2);}
+    .edit-btn{ background:#4ade80;color:#0f172a;border:none;padding:6px 12px;border-radius:8px; cursor:pointer;}
+    .delete-btn{ background:#f87171;color:#fff;border:none;padding:6px 12px;border-radius:8px; cursor:pointer;}
+    .view-btn{ background:#facc15;color:#0f172a;border:none;padding:6px 12px;border-radius:8px; cursor:pointer;}
+    img{ max-width:60px; border-radius:8px;}
+
+    /* Toast Notification */
+    #toast{ visibility:hidden; min-width:250px; background-color:#38bdf8; color:#0f172a; text-align:center; border-radius:8px; padding:14px; position:fixed; bottom:20px; right:20px; z-index:1000; font-weight:bold;}
+    #toast.show{ visibility:visible; animation: fadein 0.5s, fadeout 0.5s 2.5s;}
+    @keyframes fadein{ from{ bottom:0; opacity:0;} to{ bottom:20px; opacity:1;}}
+    @keyframes fadeout{ from{ bottom:20px; opacity:1;} to{ bottom:0; opacity:0;}}
+
+    /* Stats Cards */
+    .stats-container{ display:flex; justify-content:space-around; flex-wrap:wrap; gap:20px; margin-bottom:30px;}
+    .stat-card{ flex:1 1 28%; background:linear-gradient(135deg,#38bdf8,#0ea5e9); color:#0f172a; font-weight:bold; padding:25px; text-align:center; border-radius:15px; box-shadow:0 10px 20px rgba(0,0,0,0.3); font-size:18px; transition:transform 0.3s;}
+    .stat-card:hover{ transform:translateY(-5px);}
+    @media(max-width:900px){ .stat-card{ flex:1 1 100%; } }
+
+    /* Charts */
+    .charts-container{ display:flex; flex-wrap:wrap; gap:30px; justify-content:space-around; margin-top:30px;}
+    .charts-container canvas{ flex:1 1 45%; max-width:600px; background:#1e293b; padding:20px; border-radius:15px;}
+    @media(max-width:900px){ .charts-container canvas{ flex:1 1 100%; } }
+  </style>
+</head>
+<body>
+<h1>⚡ Black Flash Admin Dashboard</h1>
+
+<!-- Stats Cards -->
+<div class="stats-container">
+  <div class="stat-card" id="totalProducts">Products: 0</div>
+  <div class="stat-card" id="totalCategories">Categories: 0</div>
+  <div class="stat-card" id="totalStock">Total Stock: 0</div>
+</div>
+
+<!-- CRUD Section -->
+<div class="container">
+  <div class="form-box">
+    <h2>Add / Edit Product</h2>
+    <input type="text" id="name" placeholder="Product Name">
+    <input type="text" id="brand" placeholder="Brand">
+    <input type="text" id="size" placeholder="Size">
+    <input type="number" id="price" placeholder="Price">
+    <input type="text" id="category" placeholder="Category">
+    <input type="number" id="stock" placeholder="Stock Quantity">
+    <input type="text" id="preview" placeholder="Preview Image URL">
+    <input type="text" id="photos" placeholder="Other Photos (comma separated URLs)">
+    <textarea id="description" placeholder="Product Description"></textarea>
+    <button id="submitBtn">Add Product</button>
+  </div>
+
+  <div class="table-box">
+    <h2>Product List</h2>
+    <input type="text" id="search" placeholder="Search Product...">
+    <select id="filterCategory"><option value="">All Categories</option></select>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Preview</th><th>Name</th><th>Price</th><th>Brand</th><th>Size</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="productTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="charts-container">
+  <canvas id="productsCategoryChart"></canvas>
+  <canvas id="stockProductChart"></canvas>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+const API = "https://690ef3f8bd0fefc30a062f20.mockapi.io/blackzz/product/products";
+const nameInput = document.getElementById("name"),
+      brandInput = document.getElementById("brand"),
+      sizeInput = document.getElementById("size"),
+      priceInput = document.getElementById("price"),
+      categoryInput = document.getElementById("category"),
+      stockInput = document.getElementById("stock"),
+      previewInput = document.getElementById("preview"),
+      photosInput = document.getElementById("photos"),
+      descriptionInput = document.getElementById("description"),
+      submitBtn = document.getElementById("submitBtn");
+
+const table = document.getElementById("productTable"),
+      searchInput = document.getElementById("search"),
+      filterCategory = document.getElementById("filterCategory"),
+      toast = document.getElementById("toast");
+
+let editId=null, allProducts=[], categoryChart, stockChart;
+
+// Login check
+if(!localStorage.getItem("adminLoggedIn")) window.location.href="login.html";
+
+// Toast
+function showToast(msg){ toast.textContent=msg; toast.className="show"; setTimeout(()=>{toast.className=toast.className.replace("show","");},3000);}
+
+// Stats
+function updateStats(){
+  const totalProducts=allProducts.length;
+  const categories=[...new Set(allProducts.map(p=>p.category).filter(c=>c))];
+  const totalCategories=categories.length;
+  const totalStock=allProducts.reduce((sum,p)=>sum+Number(p.stock),0);
+  document.getElementById("totalProducts").textContent=`Products: ${totalProducts}`;
+  document.getElementById("totalCategories").textContent=`Categories: ${totalCategories}`;
+  document.getElementById("totalStock").textContent=`Total Stock: ${totalStock}`;
+}
+
+// Charts
+function updateCharts(){
+  const categories=[...new Set(allProducts.map(p=>p.category).filter(c=>c))];
+  const categoryCounts=categories.map(cat=>allProducts.filter(p=>p.category===cat).length);
+  const productNames=allProducts.map(p=>p.name);
+  const stockValues=allProducts.map(p=>Number(p.stock));
+
+  const ctx1=document.getElementById("productsCategoryChart").getContext("2d");
+  if(categoryChart) categoryChart.destroy();
+  categoryChart=new Chart(ctx1,{ type:'bar', data:{ labels:categories, datasets:[{label:'Products per Category', data:categoryCounts, backgroundColor:'#38bdf8'}]}, options:{ responsive:true, plugins:{ legend:{ display:false }}}});
+
+  const ctx2=document.getElementById("stockProductChart").getContext("2d");
+  if(stockChart) stockChart.destroy();
+  stockChart=new Chart(ctx2,{ type:'pie', data:{ labels:productNames, datasets:[{label:'Stock per Product', data:stockValues, backgroundColor:productNames.map(()=>`hsl(${Math.random()*360},70%,60%)`)}]}, options:{ responsive:true }});
+}
+
+// Filter
+function populateFilter(){
+  const categories=[...new Set(allProducts.map(p=>p.category).filter(c=>c))];
+  filterCategory.innerHTML='<option value="">All Categories</option>';
+  categories.forEach(cat=>{ const option=document.createElement("option"); option.value=cat; option.textContent=cat; filterCategory.appendChild(option);});
+}
+
+// Display products
+function displayProducts(){
+  const search=searchInput.value.toLowerCase();
+  const filter=filterCategory.value;
+  const filtered=allProducts.filter(p=>p.name.toLowerCase().includes(search)&&(filter?p.category===filter:true));
+  table.innerHTML="";
+  filtered.forEach(item=>{
+    table.innerHTML+=`<tr>
+      <td>${item.id}</td>
+      <td><img src="${item.preview}" alt="${item.name}"></td>
+      <td>${item.name}</td>
+      <td>₹${item.price}</td>
+      <td>${item.brand}</td>
+      <td>${item.size}</td>
+      <td>
+        <button class="edit-btn" onclick="startEdit('${item.id}')">Edit</button>
+        <button class="delete-btn" onclick="deleteProduct('${item.id}')">Delete</button>
+        <button class="view-btn" onclick="viewContent('${item.id}')">View</button>
+      </td>
+    </tr>`;
+  });
+}
+
+// Load products
+async function loadProducts(){
+  try{
+    const res=await fetch(API);
+    if(!res.ok) throw new Error("Failed to fetch products");
+    allProducts=await res.json();
+    populateFilter(); displayProducts(); updateStats(); updateCharts();
+  }catch(err){
+    console.error(err); showToast("Error loading products!");
+  }
+}
+
+// Add/Update Product
+async function addOrUpdateProduct(){
+  const product={
+    name:nameInput.value,
+    brand:brandInput.value,
+    size:sizeInput.value,
+    price:Number(priceInput.value),
+    category:categoryInput.value,
+    stock:Number(stockInput.value),
+    preview:previewInput.value,
+    photos:photosInput.value.split(',').map(p=>p.trim()),
+    description:descriptionInput.value
+  };
+  if(editId){
+    await fetch(`${API}/${editId}`,{ method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(product)});
+    showToast("Product Updated ✅"); submitBtn.textContent="Add Product"; editId=null;
+  } else {
+    await fetch(API,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(product)});
+    showToast("Product Added ✅");
+  }
+  clearForm(); loadProducts();
+}
+
+// Edit/Delete
+function startEdit(id){
+  const item = allProducts.find(p => p.id === id);
+  if(!item) return;
+  editId = id;
+  nameInput.value = item.name;
+  brandInput.value = item.brand;
+  sizeInput.value = item.size;
+  priceInput.value = item.price;
+  categoryInput.value = item.category;
+  stockInput.value = item.stock;
+  previewInput.value = item.preview;
+  photosInput.value = item.photos.join(',');
+  descriptionInput.value = item.description;
+  submitBtn.textContent = "Update Product";
+}
+
+async function deleteProduct(id){ if(confirm("Delete this product?")){ await fetch(`${API}/${id}`,{method:"DELETE"}); showToast("Product Deleted ❌"); loadProducts();}}
+
+// View Content
+function viewContent(id){
+  const item = allProducts.find(p=>p.id===id);
+  if(!item) return;
+  localStorage.setItem("selectedProduct",JSON.stringify(item));
+  window.location.href="contentDetails.html";
+}
+
+// Clear form
+function clearForm(){ 
+  nameInput.value=""; brandInput.value=""; sizeInput.value=""; priceInput.value="";
+  categoryInput.value=""; stockInput.value=""; previewInput.value=""; photosInput.value="";
+  descriptionInput.value="";
+}
+
+// Event listeners
+submitBtn.addEventListener("click",addOrUpdateProduct);
+searchInput.addEventListener("input",displayProducts);
+filterCategory.addEventListener("change",displayProducts);
+
+// Initial load
+loadProducts();
+</script>
+</body>
+</html>

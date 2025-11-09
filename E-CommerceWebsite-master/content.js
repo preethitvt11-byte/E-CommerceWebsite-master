@@ -9,7 +9,7 @@ function dynamicClothingSection(ob) {
 
   let boxLink = document.createElement("a");
   // boxLink.href = '#'
-  boxLink.href = "C:\Users\ELCOT\Desktop\flash market\E-CommerceWebsite-master\E-CommerceWebsite-master\contentDetails.html" + ob.id;
+  window.href = "/contentdetails.com";
   // console.log('link=>' + boxLink);
 
   let imgTag = document.createElement("img");
@@ -76,7 +76,9 @@ httpRequest.onreadystatechange = function() {
           containerClothing.appendChild(
             dynamicClothingSection(contentTitle[i])
           );
+            
         }
+        
       }
     } else {
       console.log("call failed!");
